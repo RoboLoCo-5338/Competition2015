@@ -9,9 +9,10 @@ class Robot: public IterativeRobot {
 	CANTalon leftB{4};
 	CANTalon rightF{2};
 	CANTalon rightB{1};
+	TalonSRX lift{0};
 	RobotDrive driveTrain{leftF,leftB,rightF,rightB};
 	Servo pan{1};
-	Servo tilt{0};
+	Servo tilt{2};
 	Compressor comp{0};
 	DoubleSolenoid cylinder{0,1};
 public:
@@ -69,6 +70,11 @@ private:
 			cylinder.Set(DoubleSolenoid::kReverse);
 		} else if (controller.GetRawButton(2)) {
 			cylinder.Set(DoubleSolenoid::kOff);
+		}
+		if(abs(controller.GetY()) > 0.05) {
+			lift.Set(controller.GetY());
+		} else {
+			lift.Set(0);
 		}
 	}
 
