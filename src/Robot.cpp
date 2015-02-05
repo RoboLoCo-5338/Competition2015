@@ -1,4 +1,5 @@
 #include "WPILib.h"
+#include "math.h"
 
 class Robot: public IterativeRobot {
 	LiveWindow *lw;
@@ -45,6 +46,7 @@ private:
 	short state_driving = 2;
 	void TeleopPeriodic() {
 		driveTrain.SetSafetyEnabled(false);
+		driveTrain.SetExpiration(2);
 		if (driverRight.GetRawButton(1)) {
 			state_driving = 2;
 		} else {
@@ -71,8 +73,8 @@ private:
 		} else if (controller.GetRawButton(2)) {
 			cylinder.Set(DoubleSolenoid::kOff);
 		}
-		if(abs(controller.GetY()) > 0.05) {
-			lift.Set(controller.GetY());
+		if(fabs(controller.GetY()) > 0.05) {
+			lift.Set(-controller.GetY());
 		} else {
 			lift.Set(0);
 		}
