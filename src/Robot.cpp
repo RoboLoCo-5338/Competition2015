@@ -1,7 +1,7 @@
 #include "WPILib.h"
+#include "Lift.h"
 #include "math.h"
 
-#define FACTOR 0.07
 class Robot: public IterativeRobot {
 	LiveWindow *lw;
 	Joystick driverLeft { 0 };
@@ -11,15 +11,19 @@ class Robot: public IterativeRobot {
 	CANTalon leftB { 4 };
 	CANTalon rightF { 2 };
 	CANTalon rightB { 1 };
-	TalonSRX lift { 0 };
 	RobotDrive driveTrain { leftF, leftB, rightF, rightB };
 	Servo pan { 1 };
 	Servo tilt { 2 };
 	PowerDistributionPanel pdp { };
 	Compressor comp { };
-	DoubleSolenoid cylinder { 0, 1 };
 	BuiltInAccelerometer accel { };
+
+	TalonSRX cd { 0 };
+	DoubleSolenoid cylinder { 0, 1 };
+	Lift lift { cd, cylinder };
+
 	int raiseLevel { 0 };
+	bool bounce = false;
 public:
 	Robot() {
 	}
@@ -75,25 +79,30 @@ private:
 		}
 		pan.Set((controller.GetZ() + 1.0) / 2);
 		tilt.Set((controller.GetThrottle() + 1.0) / 2);
+
 		if (controller.GetRawButton(5)) {
-			cylinder.Set(DoubleSolenoid::kForward);
+			lift.Open();
 		} else if (controller.GetRawButton(3)) {
-			cylinder.Set(DoubleSolenoid::kReverse);
-		} else if (controller.GetRawButton(2)) {
-			cylinder.Set(DoubleSolenoid::kOff);
+			lift.Close();
 		}
-		//lift stuff
-		for (int b = 7; b <= 12; b++) {
-			if (controller.GetRawButton(b)) {
-				raiseLevel = b - 6;
-				break;
-			}
+
+		if ((controller.GetPOV() == 0) && bounce) {
+			lift.nTotes++;
+			bounce = false;
+		} else if ((controller.GetPOV() == 180) && bounce) {
+			lift.nTotes--;
+			bounce = false;
+		} else if (controller.GetPOV() == -1) {
+			bounce = true;
 		}
+
 		if (fabs(controller.GetY()) > 0.1) {
-			lift.Set(-controller.GetY());
+			lift.Run(controller.GetY());
 		} else {
-			lift.Set(0.1 + FACTOR * raiseLevel);
+			lift.Hold();
 		}
+
+		SmartDashboard::PutNumber("totes", lift.nTotes);
 		DisabledPeriodic();
 	}
 
@@ -101,14 +110,14 @@ private:
 		SmartDashboard::PutNumber("gx", accel.GetX());
 		SmartDashboard::PutNumber("gy", accel.GetY());
 		SmartDashboard::PutNumber("gz", accel.GetZ());
-		SmartDashboard::PutNumber("Compressor Current", comp.GetCompressorCurrent()+0.00001*i);
-		SmartDashboard::PutNumber("Total Current Draw", pdp.GetTotalCurrent()+0.00001*i);
-		SmartDashboard::PutNumber("Left Drive 1", pdp.GetCurrent(15)+0.00001*i);
-		SmartDashboard::PutNumber("Left Drive 2", pdp.GetCurrent(14)+0.00001*i);
-		SmartDashboard::PutNumber("Right Drive 1", pdp.GetCurrent(0)+0.00001*i);
-		SmartDashboard::PutNumber("Right Drive 2", pdp.GetCurrent(1)+0.00001*i);
-		SmartDashboard::PutNumber("Lift Motor", pdp.GetCurrent(13)+0.00001*i);
-		i = (i+1)%2;
+		SmartDashboard::PutNumber("Compressor Current", comp.GetCompressorCurrent() + 0.00001 * i);
+		SmartDashboard::PutNumber("Total Current Draw", pdp.GetTotalCurrent() + 0.00001 * i);
+		SmartDashboard::PutNumber("Left Drive 1", pdp.GetCurrent(15) + 0.00001 * i);
+		SmartDashboard::PutNumber("Left Drive 2", pdp.GetCurrent(14) + 0.00001 * i);
+		SmartDashboard::PutNumber("Right Drive 1", pdp.GetCurrent(0) + 0.00001 * i);
+		SmartDashboard::PutNumber("Right Drive 2", pdp.GetCurrent(1) + 0.00001 * i);
+		SmartDashboard::PutNumber("Lift Motor", pdp.GetCurrent(13) + 0.00001 * i);
+		i = (i + 1) % 2;
 	}
 
 	void TestPeriodic() {
