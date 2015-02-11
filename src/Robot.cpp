@@ -25,9 +25,8 @@ class Robot: public IterativeRobot {
 	int raiseLevel { 0 };
 	bool bounce = false;
 public:
-	Robot() {
-	}
-	;
+	Robot() {}
+
 private:
 
 	void RobotInit() {
@@ -56,7 +55,7 @@ private:
 		driveTrain.SetExpiration(100);
 	}
 	short state_driving = 2;
-	char i;
+	char i = 0;
 	void TeleopPeriodic() {
 		driveTrain.SetSafetyEnabled(false);
 		driveTrain.SetExpiration(200000);
@@ -90,7 +89,12 @@ private:
 			lift.nTotes++;
 			bounce = false;
 		} else if ((controller.GetPOV() == 180) && bounce) {
-			lift.nTotes--;
+			if (lift.nTotes > 0) {
+				lift.nTotes--;
+			}
+			bounce = false;
+		} else if ((controller.GetPOV() == 270) && bounce ) {
+			lift.nTotes = 0;
 			bounce = false;
 		} else if (controller.GetPOV() == -1) {
 			bounce = true;
