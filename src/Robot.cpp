@@ -26,8 +26,8 @@ class Robot: public IterativeRobot {
 
 	DoubleSolenoid pickup { 2, 3 };
 
-	Talon pickupL { 1 };
-	Talon pickupR { 2 };
+	CANTalon pickupL { 6 };
+	CANTalon pickupR { 5 };
 	Relay leds { 0, Relay::kForwardOnly };
 
 	int raiseLevel { 0 };
@@ -109,7 +109,7 @@ private:
 			rightPower = leftPower;
 			break;
 		}
-
+		state_driving = controller.GetRawButton(8) ? 0 : state_driving;
 		switch (state_driving) {
 		default:
 		case 0: // Disabled
@@ -132,11 +132,11 @@ private:
 		}
 		float throttle = (controller.GetThrottle()-1.0)*-0.5;
 		if (controller.GetRawButton(1)) {
-			pickupL.Set(1.0*throttle, 0);
-			pickupR.Set(-1.0*throttle, 0);
-		} else if (controller.GetRawButton(2)) {
 			pickupL.Set(-1.0*throttle, 0);
 			pickupR.Set(1.0*throttle, 0);
+		} else if (controller.GetRawButton(2)) {
+			pickupL.Set(1.0*throttle, 0);
+			pickupR.Set(-1.0*throttle, 0);
 		} else if (fabs(controller.GetTwist()) > 0.5) {
 			pickupL.Set(controller.GetTwist()*throttle, 0);
 			pickupR.Set(controller.GetTwist()*throttle, 0);
