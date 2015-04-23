@@ -29,6 +29,7 @@ class Robot: public IterativeRobot {
 	CANTalon pickupL { 6 };
 	CANTalon pickupR { 5 };
 	Relay leds { 0, Relay::kForwardOnly };
+	SendableChooser autochooser { };
 
 	int raiseLevel { 0 };
 	bool bounce { false };
@@ -40,25 +41,28 @@ private:
 
 	void RobotInit() {
 		lw = LiveWindow::GetInstance();
-		CameraServer::GetInstance()->SetQuality(50);
-		CameraServer::GetInstance()->StartAutomaticCapture();
+		//CameraServer::GetInstance()->SetQuality(50);
+		//CameraServer::GetInstance()->StartAutomaticCapture();
+		autochooser.AddDefault("No Auto", (void*)0);
+		autochooser.AddObject("Drive Straight", (void*)1);
+		SmartDashboard::PutData("Autonomous Mode", autochooser);
 	}
 
-	void AutonomousInit() {
-
-	}
 	short autonum = 0;
-
+	void AutonomousInit() {
+		driveTrain.RobotDrive(0.0, 0.0);
+		autonum = (int) autochooser.GetSelected();
+	}
 	void AutonomousPeriodic() {
 		UpdateLEDs();
 		switch (autonum) {
 		default:
 		case 0:
-			Auto0();
+			NoAuto();
 			break;
-			//case 1:
-			//	Auto1();
-			//	break;
+		case 1:
+			DriveStraight();
+			break;
 			//case 2:
 			//	Auto2();
 			//	break;
@@ -66,9 +70,24 @@ private:
 	}
 
 	short autostate = 0;
-	void Auto0() {
+	void NoAuto() {
+		driveTrain.RobotDrive(0.0, 0.0);
+	}
+	void DriveStraight() {
 		switch (autostate) {
 		case 0:
+			leftEncoder.GetRaw();
+			rightEncoder.GetRaw();
+			break;
+		case 1:
+			if (leftEncoder.GetRaw() > 1000) {
+				driveTrain.RobotDrive(0.0,0.0);
+				autostate = 2;
+			}
+			driveTrain.RobotDrive(0.6,0.6);
+			break;
+		case 2:
+			driveTrain.RobotDrive(0.0,0.0);
 			break;
 		default:
 			break;
@@ -130,16 +149,16 @@ private:
 		} else if (controller.GetRawButton(3)) {
 			lift.Close();
 		}
-		float throttle = (controller.GetThrottle()-1.0)*-0.5;
+		float throttle = (controller.GetThrottle() - 1.0) * -0.5;
 		if (controller.GetRawButton(1)) {
-			pickupL.Set(-1.0*throttle, 0);
-			pickupR.Set(1.0*throttle, 0);
+			pickupL.Set(-1.0 * throttle, 0);
+			pickupR.Set(1.0 * throttle, 0);
 		} else if (controller.GetRawButton(2)) {
-			pickupL.Set(1.0*throttle, 0);
-			pickupR.Set(-1.0*throttle, 0);
+			pickupL.Set(1.0 * throttle, 0);
+			pickupR.Set(-1.0 * throttle, 0);
 		} else if (fabs(controller.GetTwist()) > 0.5) {
-			pickupL.Set(controller.GetTwist()*throttle, 0);
-			pickupR.Set(controller.GetTwist()*throttle, 0);
+			pickupL.Set(controller.GetTwist() * throttle, 0);
+			pickupR.Set(controller.GetTwist() * throttle, 0);
 		} else {
 			pickupL.Set(0);
 			pickupR.Set(0);
@@ -177,6 +196,7 @@ private:
 
 	void DisabledInit() {
 		//leds.Set(Relay::kOff);
+		driveTrain.RobotDrive(0.0, 0.0);
 	}
 
 	void DisabledPeriodic() {
