@@ -4,6 +4,8 @@
 
 class Robot: public IterativeRobot {
 	LiveWindow *lw { nullptr };
+	SendableChooser autochoice { };
+
 	Joystick driverLeft { 0 };
 	Joystick driverRight { 1 };
 	Joystick controller { 2 };
@@ -15,7 +17,7 @@ class Robot: public IterativeRobot {
 	//Servo pan { 1 };
 	//Servo tilt { 2 };
 	PowerDistributionPanel pdp { };
-	Compressor comp { };
+	Compressor comp { 5 };
 	BuiltInAccelerometer accel { };
 	Encoder rightEncoder { 0, 1, false, Encoder::EncodingType::k4X };
 	Encoder leftEncoder { 2, 3, true, Encoder::EncodingType::k4X };
@@ -40,35 +42,130 @@ private:
 
 	void RobotInit() {
 		lw = LiveWindow::GetInstance();
-		CameraServer::GetInstance()->SetQuality(50);
-		CameraServer::GetInstance()->StartAutomaticCapture();
+		//CameraServer::GetInstance()->SetQuality(50);
+		//CameraServer::GetInstance()->StartAutomaticCapture();
+		driveTrain.SetExpiration(20000);
+		driveTrain.SetSafetyEnabled(false);
+		pickup.Set(DoubleSolenoid::kOff);
+		autochoice.AddDefault("No Auto", new int(0));
+		autochoice.AddObject("Drive Straight", new int(1));
+		autochoice.AddObject("Turn Right", new int(2));
+		autochoice.AddObject("Turn Left", new int(3));
+		SmartDashboard::PutData("Autonomous Modes", &autochoice);
 	}
 
+	short autonum = 1;
 	void AutonomousInit() {
-
+		driveTrain.SetExpiration(20000);
+		driveTrain.SetSafetyEnabled(false);
+		lift.Close();
+		pickup.Set(DoubleSolenoid::kReverse);
+		autostate = 0;
+		rightEncoder.Reset();
+		autonum = ((int*) autochoice.GetSelected())[0];
 	}
-	short autonum = 0;
 
 	void AutonomousPeriodic() {
 		UpdateLEDs();
 		switch (autonum) {
 		default:
 		case 0:
-			Auto0();
+			StoppedAuto();
 			break;
-			//case 1:
-			//	Auto1();
-			//	break;
-			//case 2:
-			//	Auto2();
-			//	break;
+		case 1:
+			ForwardAuto();
+			break;
+		case 2:
+			TurnRightAuto();
+			break;
+		case 3:
+			TurnLeftAuto();
+			break;
 		}
+		UpdateDashboard();
 	}
-
+	Timer autotime;
 	short autostate = 0;
-	void Auto0() {
+	void ForwardAuto() {
 		switch (autostate) {
 		case 0:
+			rightEncoder.Reset();
+			autostate = 1;
+			break;
+		case 1:
+			if (rightEncoder.GetRaw() > 6800) {
+				autostate = 2;
+				driveTrain.TankDrive(0.0, 0.0);
+				rightEncoder.Reset();
+			}
+			driveTrain.TankDrive(.6, .6);
+			break;
+		case 2:
+			driveTrain.TankDrive(0.0, 0.0);
+			break;
+		default:
+			break;
+		}
+	}
+	void StoppedAuto() {
+		driveTrain.TankDrive(0.0, 0.0);
+	}
+	void TurnRightAuto() {
+		switch (autostate) {
+		case 0:
+			rightEncoder.Reset();
+			leftEncoder.Reset();
+			autostate = 1;
+			break;
+		case 1:
+			if (rightEncoder.GetRaw() < -800) {
+				autostate = 2;
+				rightEncoder.Reset();
+				leftEncoder.Reset();
+			}
+			driveTrain.TankDrive(0.5, -0.5);
+			break;
+		case 2:
+			if (rightEncoder.GetRaw() > 5500) {
+				autostate = 3;
+				driveTrain.TankDrive(0.0, 0.0);
+				rightEncoder.Reset();
+			}
+			driveTrain.TankDrive(.6, .6);
+			break;
+		case 3:
+			driveTrain.TankDrive(0.0, 0.0);
+			break;
+		default:
+			break;
+		}
+
+	}
+	void TurnLeftAuto() {
+		switch (autostate) {
+		case 0:
+			rightEncoder.Reset();
+			leftEncoder.Reset();
+			autostate = 1;
+			break;
+		case 1:
+			if (rightEncoder.GetRaw() > 800) {
+				autostate = 2;
+				rightEncoder.Reset();
+				leftEncoder.Reset();
+			}
+			driveTrain.TankDrive(-0.75, 0.75);
+			break;
+		case 2:
+			if (rightEncoder.GetRaw() > 5500) {
+				autostate = 3;
+				driveTrain.TankDrive(0.0, 0.0);
+				rightEncoder.Reset();
+			}
+			driveTrain.TankDrive(.6, .6);
+			break;
+		case 3:
+			driveTrain.TankDrive(0.0, 0.0);
 			break;
 		default:
 			break;
@@ -79,15 +176,14 @@ private:
 		leds.Set(Relay::kForward);
 		comp.SetClosedLoopControl(true);
 
-		driveTrain.SetExpiration(100);
+		driveTrain.SetExpiration(200000);
+		driveTrain.SetSafetyEnabled(false);
 	}
 	short state_driving = 2;
 	short state_straight = 0;
 	char i = 0;
 	void TeleopPeriodic() {
 		UpdateLEDs();
-		driveTrain.SetSafetyEnabled(false);
-		driveTrain.SetExpiration(200000);
 		if (driverRight.GetRawButton(1)) {
 			state_driving = 2;
 		} else {
@@ -111,10 +207,10 @@ private:
 		}
 
 		switch (state_driving) {
+//		case 0: // Disabled
+//			driveTrain.TankDrive(.0f, .0f, false);
+//			break;
 		default:
-		case 0: // Disabled
-			driveTrain.TankDrive(.0f, .0f, false);
-			break;
 		case 1: // Precise Driving
 			driveTrain.TankDrive(-leftPower * .5, -rightPower * .5, false);
 			break;
@@ -125,28 +221,28 @@ private:
 		//pan.Set((controller.GetZ() + 1.0) / 2);
 		//tilt.Set((controller.GetThrottle() + 1.0) / 2);
 
-		if (controller.GetRawButton(5)) {
+		if (controller.GetRawButton(3)) {
 			lift.Open();
-		} else if (controller.GetRawButton(3)) {
+		} else if (controller.GetRawButton(5)) {
 			lift.Close();
 		}
-		float throttle = (controller.GetThrottle()-1.0)*-0.5;
+		float throttle = (controller.GetThrottle() - 1.0) * -0.5;
 		if (controller.GetRawButton(1)) {
-			pickupL.Set(1.0*throttle, 0);
-			pickupR.Set(-1.0*throttle, 0);
+			pickupL.Set(1.0 * throttle, 0);
+			pickupR.Set(-1.0 * throttle, 0);
 		} else if (controller.GetRawButton(2)) {
-			pickupL.Set(-1.0*throttle, 0);
-			pickupR.Set(1.0*throttle, 0);
-		} else if (fabs(controller.GetTwist()) > 0.5) {
-			pickupL.Set(controller.GetTwist()*throttle, 0);
-			pickupR.Set(controller.GetTwist()*throttle, 0);
+			pickupL.Set(-1.0 * throttle, 0);
+			pickupR.Set(1.0 * throttle, 0);
+		} else if ((fabs(controller.GetTwist()) > 0.5) & (controller.GetRawButton(12))) {
+			pickupL.Set(controller.GetTwist() * throttle, 0);
+			pickupR.Set(controller.GetTwist() * throttle, 0);
 		} else {
 			pickupL.Set(0);
 			pickupR.Set(0);
 		}
-		if (controller.GetRawButton(4)) {
+		if (controller.GetRawButton(6)) {
 			pickup.Set(DoubleSolenoid::kForward);
-		} else if (controller.GetRawButton(6)) {
+		} else if (controller.GetRawButton(4)) {
 			pickup.Set(DoubleSolenoid::kReverse);
 		}
 
@@ -177,6 +273,7 @@ private:
 
 	void DisabledInit() {
 		//leds.Set(Relay::kOff);
+		pickup.Set(DoubleSolenoid::kOff);
 	}
 
 	void DisabledPeriodic() {
