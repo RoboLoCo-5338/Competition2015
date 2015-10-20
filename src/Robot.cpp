@@ -26,8 +26,10 @@ class Robot: public IterativeRobot {
 
 	DoubleSolenoid pickup { 2, 3 };
 
-	CANTalon pickupL { 6 };
-	CANTalon pickupR { 5 };
+//	CANTalon pickupL { 6 };
+//	CANTalon pickupR { 5 };
+	TalonSRX pickupL { 1 };
+	TalonSRX pickupR { 2 };
 	Relay leds { 0, Relay::kForwardOnly };
 	SendableChooser autochooser { };
 
@@ -45,12 +47,15 @@ private:
 		//CameraServer::GetInstance()->StartAutomaticCapture();
 		autochooser.AddDefault("No Auto", (void*)0);
 		autochooser.AddObject("Drive Straight", (void*)1);
-		SmartDashboard::PutData("Autonomous Mode", autochooser);
+		SmartDashboard::PutData("Autonomous Mode", &autochooser);
+		driveTrain.SetSafetyEnabled(false);
+		driveTrain.SetExpiration(20000);
+		driveTrain.TankDrive(0.0,0.0,false);
 	}
 
 	short autonum = 0;
 	void AutonomousInit() {
-		driveTrain.RobotDrive(0.0, 0.0);
+		driveTrain.TankDrive(0.0, 0.0);
 		autonum = (int) autochooser.GetSelected();
 	}
 	void AutonomousPeriodic() {
@@ -71,7 +76,7 @@ private:
 
 	short autostate = 0;
 	void NoAuto() {
-		driveTrain.RobotDrive(0.0, 0.0);
+		driveTrain.TankDrive(0.0, 0.0);
 	}
 	void DriveStraight() {
 		switch (autostate) {
@@ -81,13 +86,13 @@ private:
 			break;
 		case 1:
 			if (leftEncoder.GetRaw() > 1000) {
-				driveTrain.RobotDrive(0.0,0.0);
+				driveTrain.TankDrive(0.0,0.0);
 				autostate = 2;
 			}
-			driveTrain.RobotDrive(0.6,0.6);
+			driveTrain.TankDrive(0.6,0.6);
 			break;
 		case 2:
-			driveTrain.RobotDrive(0.0,0.0);
+			driveTrain.TankDrive(0.0,0.0);
 			break;
 		default:
 			break;
@@ -98,7 +103,7 @@ private:
 		leds.Set(Relay::kForward);
 		comp.SetClosedLoopControl(true);
 
-		driveTrain.SetExpiration(100);
+		driveTrain.SetExpiration(200000);
 	}
 	short state_driving = 2;
 	short state_straight = 0;
@@ -196,12 +201,13 @@ private:
 
 	void DisabledInit() {
 		//leds.Set(Relay::kOff);
-		driveTrain.RobotDrive(0.0, 0.0);
+		driveTrain.TankDrive(0.0, 0.0);
 	}
 
 	void DisabledPeriodic() {
 		UpdateLEDs();
 		UpdateDashboard();
+		driveTrain.TankDrive(0.0,0.0);
 	}
 	void UpdateLEDs() {
 		if (pdp.GetVoltage() > 11) {
